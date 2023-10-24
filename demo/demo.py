@@ -84,7 +84,10 @@ if __name__ == "__main__":
             assert args.input, "The input path(s) was not found"
         for path in tqdm.tqdm(args.input, disable=not args.output):
             # use PIL, to be consistent with evaluation
-            img = read_image(path, format="BGR")
+            # UPDATE: Using PIL does not work with our 32-bit integer image format. 
+            # Changing this to part of the code to use OPENCV
+            # img = read_image(path, format="BGR")
+            img = cv2.imread(path)
             start_time = time.time()
             predictions, visualized_output = demo.run_on_image(img)
             logger.info(
@@ -104,7 +107,15 @@ if __name__ == "__main__":
                 else:
                     assert len(args.input) == 1, "Please specify a directory with args.output"
                     out_filename = args.output
-                visualized_output.save(out_filename)
+                # visualized_output.save(out_filename)
+                
+                segmentation_mask = np.zeros((visualized_output.height, visualized_output.width))
+                for mask in predictions['instances'].pred_masks:
+                    segmentation_mask +=  mask.cpu().detach().numpy().astype('uint8')
+                segmentation_mask[segmentation_mask>1] = 1
+                mask_file_name = out_filename.rsplit(".",1)[0]
+                cv2.imwrite(mask_file_name+f"_mask.jpg", 255*segmentation_mask)
+
             else:
                 cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
                 cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
